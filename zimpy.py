@@ -1,7 +1,5 @@
 import sqlite3
-
 from flask import Flask, Response, render_template, request
-
 from structs import *
 
 ARTICLE = "A"
@@ -9,6 +7,7 @@ OTHER = "-"
 
 
 def bisect(compare_function, low, high):
+    """Bisect the given range using the given compare function"""
     while low < high:
         middle = (low + high) // 2
         comp = compare_function(middle)
@@ -31,7 +30,8 @@ class ZIMFile:
         self.titlePtrList = TitlePtrList(self.header.buf, self.header.titlePtrPos)
         self.clusterPtrList = ClusterPtrList(self.header.buf, self.header.clusterPtrPos)
 
-    def _compare_url(self, index: int, ns: bytes, url: str):
+    def _compare_url(self, index: int, ns: bytes, url: str) -> int:
+        """Compare the url of the dirent at the given index with the given url in the given namespace"""
         d = Dirent(self.header.buf, self.urlPtrList[index])
         if d.namespace == ns and d.url == url:
             return 0
@@ -40,7 +40,8 @@ class ZIMFile:
         else:
             return 1
 
-    def _compare_title(self, index: int, ns: bytes, title: str):
+    def _compare_title(self, index: int, ns: bytes, title: str) -> int:
+        """Compare the title of the dirent at the given index with the given title in the given namespace"""
         urlIndex = self.titlePtrList[index]
         d = Dirent(self.header.buf, self.urlPtrList[urlIndex])
         title_from_data = d.title or d.url
@@ -51,41 +52,46 @@ class ZIMFile:
         else:
             return 1
 
-    def findByUrl(self, ns, url):
+    def findByUrl(self, ns, url) -> int:
+        """Find the index of the dirent with the given url in the given namespace"""
         return bisect(lambda index: self._compare_url(index, ns, url), 0, self.header.articleCount)
 
-    def findByTitle(self, ns, title):
+    def findByTitle(self, ns, title) -> int:
+        """Find the index of the dirent with the given title in the given namespace"""
         return bisect(lambda index: self._compare_title(index, ns, title), 0, self.header.articleCount)
 
 
-def create_db():
+def create_db() -> None:
+    """Create the database"""
     with sqlite3.connect("wiki.db") as conn:
         c = conn.cursor()
-        c.execute("DROP TABLE IF EXISTS articles")
-        c.execute("""CREATE TABLE articles (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            url TEXT NOT NULL
-        )""")
+        c.execute("DROP TABLE IF EXISTS entries")
+        c.execute("""CREATE TABLE entries (
+            id INTEGER PRIMARY KEY,
+            title TEXT,
+            url TEXT UNIQUE,
+            namespace TEXT
+            )""")
         conn.commit()
 
 
-def populate_db(zim: ZIMFile):
+def populate_db(zim: ZIMFile) -> None:
+    """Populate the database with the entries from the zim file"""
     print("Populating database...")
     with sqlite3.connect("wiki.db") as conn:
         c = conn.cursor()
-        articles = []
+        entries = []
         for i in range(zim.header.articleCount):
             dirent = Dirent(zim.header.buf, zim.urlPtrList[i])
-            if dirent.namespace == bytes(ARTICLE, "utf-8") and dirent.title and dirent.url:
-                articles.append((dirent.title, dirent.url))
-        c.executemany("INSERT INTO articles (title, url) VALUES (?, ?)", articles)
+            entries.append((dirent.title, dirent.url, dirent.namespace.decode("utf-8")))
+        c.executemany("INSERT INTO entries (title, url, namespace) VALUES (?, ?, ?)", entries)
+        c.execute("CREATE INDEX title_index ON entries (title)")
         conn.commit()
-        print("Added", len(articles), "articles to database")
-        # not adding when url or title is missing, also inserting redirects too I guess
+        print("Added", len(entries), "entries")
 
 
-def rank_results(query, results):
+def rank_results(query: str, results: list) -> list:
+    """Rank the results by the length of the match divided by the length of the title"""
     def ranker(item):
         title, url = item
         match_length = len(query)
@@ -126,11 +132,11 @@ class ZIMServer:
 
             with sqlite3.connect("wiki.db") as conn:
                 c = conn.cursor()
-                c.execute("SELECT title, url FROM articles WHERE title LIKE ? OR url LIKE ?", ("%" + query + "%", "%" + query + "%"))
+                c.execute("SELECT title, url FROM entries WHERE title LIKE ? AND namespace = ?",
+                          (f"%{query}%", ARTICLE))
                 results = c.fetchall()
 
             results = rank_results(query, results)
-            print(results)
             return render_template("search.html", query=query, results=results)
 
         @self.app.route("/<path:url>")
