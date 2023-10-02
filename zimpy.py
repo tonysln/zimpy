@@ -1,4 +1,4 @@
-from flask import Flask, Response
+from flask import Flask, Response, render_template
 
 from structs import *
 
@@ -77,6 +77,10 @@ class ZIMServer:
         def w(url):
             return "Not found", 404
 
+        @self.app.route("/search")
+        def search():
+            return "Not found", 404
+
         @self.app.route("/<path:url>")
         def url(url):
             if "/" not in url:
@@ -88,6 +92,10 @@ class ZIMServer:
                 dirent = Dirent(self.zim.header.buf, self.zim.urlPtrList[index])
             cluster = Cluster(self.zim.header.buf, self.zim.clusterPtrList[dirent.clusterNumber])
             content = cluster.get_blob_data(dirent.blobNumber)
+            if self.zim.mimeList[dirent.mimetype] == "text/html":
+                head = content.split(b"<head>", 1)[1].split(b"</head>", 1)[0]
+                body = content.split(b"<body", 1)[1].split(b">", 1)[1].rsplit(b"</body>", 1)[0]
+                return render_template("base.html", head=head.decode("utf-8"), body=body.decode("utf-8"))
             response = Response(content)
             response.headers['Content-Type'] = self.zim.mimeList[dirent.mimetype]
             return response
