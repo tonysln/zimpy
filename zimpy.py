@@ -71,7 +71,7 @@ def create_db():
 
 
 def populate_db(zim: ZIMFile):
-    print("Populating database")
+    print("Populating database...")
     with sqlite3.connect("wiki.db") as conn:
         c = conn.cursor()
         articles = []
@@ -96,7 +96,6 @@ def rank_results(query, results):
     return sorted(results, key=ranker)
 
 
-
 class ZIMServer:
     def __init__(self, file_path: str):
         self.zim = ZIMFile(file_path)
@@ -109,9 +108,7 @@ class ZIMServer:
         def index():
             dirent = Dirent(self.zim.header.buf, self.zim.urlPtrList[self.zim.header.mainPage])
             cluster = Cluster(self.zim.header.buf, self.zim.clusterPtrList[dirent.clusterNumber])
-            response = Response(cluster.get_blob_data(dirent.blobNumber))
-            response.headers['Content-Type'] = self.zim.mimeList[dirent.mimetype]
-            return response
+            return cluster.get_blob_data(dirent.blobNumber)
 
         @self.app.route("/favicon.ico")
         def favicon():
@@ -133,6 +130,7 @@ class ZIMServer:
                 results = c.fetchall()
 
             results = rank_results(query, results)
+            print(results)
             return render_template("search.html", query=query, results=results)
 
         @self.app.route("/<path:url>")
