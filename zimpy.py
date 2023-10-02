@@ -1,4 +1,6 @@
-from flask import Flask, Response, render_template
+import sqlite3
+
+from flask import Flask, Response, render_template, request
 
 from structs import *
 
@@ -56,10 +58,52 @@ class ZIMFile:
         return bisect(lambda index: self._compare_title(index, ns, title), 0, self.header.articleCount)
 
 
+def create_db():
+    with sqlite3.connect("wiki.db") as conn:
+        c = conn.cursor()
+        c.execute("DROP TABLE IF EXISTS articles")
+        c.execute("""CREATE TABLE articles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            url TEXT NOT NULL
+        )""")
+        conn.commit()
+
+
+def populate_db(zim: ZIMFile):
+    print("Populating database")
+    with sqlite3.connect("wiki.db") as conn:
+        c = conn.cursor()
+        articles = []
+        for i in range(zim.header.articleCount):
+            dirent = Dirent(zim.header.buf, zim.urlPtrList[i])
+            if dirent.namespace == bytes(ARTICLE, "utf-8") and dirent.title and dirent.url:
+                articles.append((dirent.title, dirent.url))
+        c.executemany("INSERT INTO articles (title, url) VALUES (?, ?)", articles)
+        conn.commit()
+        print("Added", len(articles), "articles to database")
+        # not adding when url or title is missing, also inserting redirects too I guess
+
+
+def rank_results(query, results):
+    def ranker(item):
+        title, url = item
+        match_length = len(query)
+        title_length = len(title)
+        score = match_length / title_length
+        return -score
+
+    return sorted(results, key=ranker)
+
+
+
 class ZIMServer:
     def __init__(self, file_path: str):
         self.zim = ZIMFile(file_path)
         self.app = Flask(__name__)
+
+        create_db()
+        populate_db(self.zim)
 
         @self.app.route("/")
         def index():
@@ -79,7 +123,17 @@ class ZIMServer:
 
         @self.app.route("/search")
         def search():
-            return "Not found", 404
+            query = request.args.get("q")
+            if not query:
+                return "No query", 400
+
+            with sqlite3.connect("wiki.db") as conn:
+                c = conn.cursor()
+                c.execute("SELECT title, url FROM articles WHERE title LIKE ? OR url LIKE ?", ("%" + query + "%", "%" + query + "%"))
+                results = c.fetchall()
+
+            results = rank_results(query, results)
+            return render_template("search.html", query=query, results=results)
 
         @self.app.route("/<path:url>")
         def url(url):
