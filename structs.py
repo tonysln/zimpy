@@ -114,9 +114,9 @@ class BaseStruct(metaclass=MetaBaseStruct):
 
 class Header(BaseStruct):
     _fields_ = [("magicNumber", "c_uint32"), ("majorVersion", "c_uint16"), ("minorVersion", "c_uint16"),
-        ("uuid", "16s"), ("articleCount", "c_uint32"), ("clusterCount", "c_uint32"), ("urlPtrPos", "c_uint64"),
-        ("titlePtrPos", "c_uint64"), ("clusterPtrPos", "c_uint64"), ("mimeListPos", "c_uint64"),
-        ("mainPage", "c_uint32"), ("layoutPage", "c_uint32"), ("_checksumPos", "c_uint64"), ]
+                ("uuid", "16s"), ("articleCount", "c_uint32"), ("clusterCount", "c_uint32"), ("urlPtrPos", "c_uint64"),
+                ("titlePtrPos", "c_uint64"), ("clusterPtrPos", "c_uint64"), ("mimeListPos", "c_uint64"),
+                ("mainPage", "c_uint32"), ("layoutPage", "c_uint32"), ("_checksumPos", "c_uint64"), ]
 
     @property
     def size(self):
@@ -163,13 +163,13 @@ class Dirent(BaseStruct):
 class ContentDirent(Dirent):
     kind = "content"
     _fields_ = [("mimetype", "c_uint16"), ("parameter_len", "c_uint8"), ("namespace", "c_char"),
-        ("revision", "c_uint32"), ("clusterNumber", "c_uint32"), ("blobNumber", "c_uint32"), ]
+                ("revision", "c_uint32"), ("clusterNumber", "c_uint32"), ("blobNumber", "c_uint32"), ]
 
 
 class RedirectDirent(Dirent):
     kind = "redirect"
     _fields_ = [("mimetype", "c_uint16"), ("parameter_len", "c_uint8"), ("namespace", "c_char"),
-        ("revision", "c_uint32"), ("redirect_index", "c_uint32"), ]
+                ("revision", "c_uint32"), ("redirect_index", "c_uint32"), ]
 
 
 class NormalBlobOffsetArray(BaseArray):
