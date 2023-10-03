@@ -1,6 +1,6 @@
 # zimpy: Personal Wikipedia Hosting
 
-zimpy enables you to host Wikipedia content locally through a simplified Flask webserver. It is designed to be used with ZIM files, which are offline Wikipedia archives. This project is built for my specific use case and is not designed for broad compatibility. If your ZIM file structure diverges from the one used here, or if you are utilizing a different Python version, the project may not function as intended. For a more versatile ZIM file reader, please refer to [ZIMply](https://github.com/kimbauters/ZIMply).
+zimpy enables you to host Wikipedia content locally through a simplified Flask webserver. It is designed to be used with ZIM files, which are offline Wikipedia archives. This project is built for my specific use case and is not designed for broad compatibility. If your ZIM file structure diverges from the one I used, or if you are utilizing a different Python version, the program will most likely break. For a more versatile ZIM file reader, please refer to [ZIMply](https://github.com/kimbauters/ZIMply). Be free to open an issue or pull request if you have any suggestions or improvements.
 
 ## Table of Contents
 - [Features](#features)
