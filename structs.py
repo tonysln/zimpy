@@ -1,3 +1,4 @@
+import mmap
 import struct
 from lzma import LZMADecompressor, FORMAT_XZ
 from typing import Tuple
@@ -49,7 +50,7 @@ class MetaBaseStruct(type):
 
 
 class MimeTypeList:
-    def __init__(self, buf: bytes, offset: int):
+    def __init__(self, buf, offset: int):
         self.buf = buf
         self.offset = offset
 
@@ -77,7 +78,7 @@ class MimeTypeList:
 class BaseArray:
     __slots__ = ("buf", "offset", "ctype")
 
-    def __init__(self, buf: bytes, offset: int):
+    def __init__(self, buf: mmap, offset: int):
         self.buf = buf
         self.offset = offset
 
@@ -107,14 +108,14 @@ class ClusterPtrList(BaseArray):
 class BaseStruct(metaclass=MetaBaseStruct):
     __slots__ = ("buf", "offset")
 
-    def __init__(self, buf: bytes, offset: int):
+    def __init__(self, buf: mmap, offset: int):
         self.buf = buf
         self.offset = offset
 
 
 class Header(BaseStruct):
     _fields_ = [("magicNumber", "c_uint32"), ("majorVersion", "c_uint16"), ("minorVersion", "c_uint16"),
-                ("uuid", "16s"), ("articleCount", "c_uint32"), ("clusterCount", "c_uint32"), ("urlPtrPos", "c_uint64"),
+                ("uuid", "16s"), ("entryCount", "c_uint32"), ("clusterCount", "c_uint32"), ("urlPtrPos", "c_uint64"),
                 ("titlePtrPos", "c_uint64"), ("clusterPtrPos", "c_uint64"), ("mimeListPos", "c_uint64"),
                 ("mainPage", "c_uint32"), ("layoutPage", "c_uint32"), ("_checksumPos", "c_uint64"), ]
 
@@ -127,6 +128,10 @@ class Header(BaseStruct):
         if self.mimeListPos < 80:
             raise ValueError("Header has no checksumPos")
         return self._checksumPos
+
+    def __str__(self):
+        return f"ZIM Header: version {self.majorVersion}.{self.minorVersion}, {self.entryCount} entries, " \
+                  f"{self.clusterCount} clusters"
 
 
 class Dirent(BaseStruct):
