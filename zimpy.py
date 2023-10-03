@@ -85,7 +85,7 @@ def _initialize_db(zim: ZIMFile) -> None:
 
 
 class ZIMServer:
-    def __init__(self, file_path: str, template: str) -> None:
+    def __init__(self, file_path: str, template: str = "base.html") -> None:
         """Initialize the ZIM server"""
         self._zim = ZIMFile(file_path)
         self._template = template
@@ -159,8 +159,3 @@ class ZIMServer:
         _head = content.split("<head>", 1)[1].split("</head>", 1)[0]
         _body = content.split("<body", 1)[1].split(">", 1)[1].rsplit("</body>", 1)[0]
         return render_template(self._template, head=_head, body=_body)
-
-
-if __name__ == '__main__':
-    server = ZIMServer("wiki.zim", "base.html")
-    server.app.run()
