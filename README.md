@@ -36,7 +36,7 @@ pip install -r requirements.txt
 ```bash
 python main.py
 ```
-3. The database is the populated with the contents of the ZIM file. This may take a few minutes.
+3. The database is then populated with the contents of the ZIM file. This may take a few minutes.
 4. Access the hosted content by navigating to `127.0.0.1:5000` in your web browser.
 
 ### Custom Templates
