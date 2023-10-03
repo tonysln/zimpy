@@ -1,4 +1,7 @@
 import sqlite3
+import mmap
+from typing import List, Tuple
+
 from flask import Flask, Response, render_template, request
 from structs import *
 
@@ -23,12 +26,14 @@ def bisect(compare_function, low, high):
 
 class ZIMFile:
     def __init__(self, file_path: str):
-        self.file = open(file_path, "rb")
-        self.header = Header(self.file.read(), 0)
-        self.mimeList = MimeTypeList(self.header.buf, self.header.mimeListPos)
-        self.urlPtrList = UrlPtrList(self.header.buf, self.header.urlPtrPos)
-        self.titlePtrList = TitlePtrList(self.header.buf, self.header.titlePtrPos)
-        self.clusterPtrList = ClusterPtrList(self.header.buf, self.header.clusterPtrPos)
+        with open(file_path, "rb") as f:
+            self.mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+            self.header = Header(self.mm, 0)
+            self.mimeList = MimeTypeList(self.mm, self.header.mimeListPos)
+            self.urlPtrList = UrlPtrList(self.mm, self.header.urlPtrPos)
+            self.titlePtrList = TitlePtrList(self.mm, self.header.titlePtrPos)
+            self.clusterPtrList = ClusterPtrList(self.mm, self.header.clusterPtrPos)
+            print(self.header)
 
     def _compare_url(self, index: int, ns: bytes, url: str) -> int:
         """Compare the url of the dirent at the given index with the given url in the given namespace"""
@@ -54,40 +59,50 @@ class ZIMFile:
 
     def findByUrl(self, ns, url) -> int:
         """Find the index of the dirent with the given url in the given namespace"""
-        return bisect(lambda index: self._compare_url(index, ns, url), 0, self.header.articleCount)
+        return bisect(lambda index: self._compare_url(index, ns, url), 0, self.header.entryCount)
 
     def findByTitle(self, ns, title) -> int:
         """Find the index of the dirent with the given title in the given namespace"""
-        return bisect(lambda index: self._compare_title(index, ns, title), 0, self.header.articleCount)
+        return bisect(lambda index: self._compare_title(index, ns, title), 0, self.header.entryCount)
 
 
-def create_db() -> None:
-    """Create the database"""
+def create_and_populate_db(zim: ZIMFile, batch_size: int = 1000) -> None:
+    """Create and populate the database with the entries from the zim file"""
     with sqlite3.connect("wiki.db") as conn:
         c = conn.cursor()
-        c.execute("DROP TABLE IF EXISTS entries")
-        c.execute("""CREATE TABLE entries (
+
+        c.execute("""CREATE TABLE IF NOT EXISTS entries (
             id INTEGER PRIMARY KEY,
             title TEXT,
-            url TEXT UNIQUE,
+            url TEXT,
             namespace TEXT
             )""")
         conn.commit()
 
+        c.execute("SELECT COUNT(*) FROM entries")
+        if c.fetchone()[0] > 0:
+            print("Database is already populated. Skipping...")
+            return
 
-def populate_db(zim: ZIMFile) -> None:
-    """Populate the database with the entries from the zim file"""
-    print("Populating database...")
-    with sqlite3.connect("wiki.db") as conn:
-        c = conn.cursor()
-        entries = []
-        for i in range(zim.header.articleCount):
+        print("Populating database...")
+        batch: List[Tuple[str, str, str]] = []
+        for i in range(zim.header.entryCount):
+            if i % (zim.header.entryCount // 10) == 0:
+                print(f"{i / zim.header.entryCount * 100:.2f}%")
             dirent = Dirent(zim.header.buf, zim.urlPtrList[i])
-            entries.append((dirent.title, dirent.url, dirent.namespace.decode("utf-8")))
-        c.executemany("INSERT INTO entries (title, url, namespace) VALUES (?, ?, ?)", entries)
-        c.execute("CREATE INDEX title_index ON entries (title)")
+            if dirent.namespace.decode("utf-8") == ARTICLE:
+                title = dirent.title or dirent.url
+                batch.append((title, dirent.url, dirent.namespace.decode("utf-8")))
+
+                if len(batch) == batch_size:
+                    c.executemany("INSERT INTO entries (title, url, namespace) VALUES (?, ?, ?)", batch)
+                    batch.clear()
+
+        if batch:
+            c.executemany("INSERT INTO entries (title, url, namespace) VALUES (?, ?, ?)", batch)
+        c.execute("CREATE INDEX IF NOT EXISTS title_index ON entries (title)")
         conn.commit()
-        print("Added", len(entries), "entries")
+        print("Done")
 
 
 def rank_results(query: str, results: list) -> list:
@@ -107,8 +122,7 @@ class ZIMServer:
         self.zim = ZIMFile(file_path)
         self.app = Flask(__name__)
 
-        create_db()
-        populate_db(self.zim)
+        create_and_populate_db(self.zim)
 
         @self.app.route("/")
         def index():
@@ -132,8 +146,8 @@ class ZIMServer:
 
             with sqlite3.connect("wiki.db") as conn:
                 c = conn.cursor()
-                c.execute("SELECT title, url FROM entries WHERE title LIKE ? AND namespace = ?",
-                          (f"%{query}%", ARTICLE))
+                db_query = "%" + "%".join(query.split()) + "%"
+                c.execute("SELECT title, url FROM entries WHERE title LIKE ? LIMIT 1000", (db_query,))
                 results = c.fetchall()
 
             results = rank_results(query, results)
