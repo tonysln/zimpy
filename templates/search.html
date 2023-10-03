@@ -32,13 +32,14 @@
       }
       main {
           padding: 0.5rem 0;
+          line-height: 1.3;
       }
       h1 {
           font-size: 2.5rem;
           font-family: 'Georgia', serif;
           font-weight: 500;
           line-height: 1.3;
-          margin-bottom: 0.5rem;
+          margin-bottom: 0.5em;
           border-bottom: solid 1px #eaecf0;
       }
       ul {
@@ -69,7 +70,7 @@
   </form>
 </header>
 <main>
-  <h1>"{{ query }}"</h1>
+  <h1>Search results for: {{ query }}</h1>
     <ul>
         {% for title, url in results %}
             <li><a href="{{ url }}">{{ title }}</a></li>
