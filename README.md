@@ -3,7 +3,7 @@
 If you get annoyed by banners asking for money or all of the different layouts across different wikipedia pages, **zimpy** might be the thing you are looking for. Simply download a wikipedia dump and host it yourself, with full control over the layout etc. 
 
 <div align="center">
-![zimpy](./image.png)
+![zimpy](/assets/image.png)
 </div>
 
 ## Setup
