@@ -1,4 +1,3 @@
-from zimpy import ZIMServer
+from zimpy import WikiServer
 
-server = ZIMServer("wiki.zim")
-server.app.run()
+WikiServer("wiki.zim")
