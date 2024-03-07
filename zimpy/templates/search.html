@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block content %}
+<main style="max-width: 55.8em; margin: 0 auto;">
+    {% if not results %}
+    <h2>No results found for: {{ query }}</h2>
+    {% endif %}
+    {% if results %}
+    <h2>Search Results for: {{ query }}</h2>
+    <ul style="list-style: none; padding: 0; margin: 0;">
+        {% for title, url in results %}
+        <li><a href="{{ url }}">{{ title }}</a></li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+</main>
+{% endblock %}
